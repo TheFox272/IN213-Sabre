@@ -15,18 +15,12 @@ type expr =
   | EMonop of (string * expr)                   (* -e *)
   | EBinop of (string * expr * expr)            (* e1 + e2 *)
   | EAffect of (string * expr)                  (* x := e *)
-  | ERule of (expr * expr)                        (* if e1 then e2*)
-  | EList of (expr * expr)              (* {c1, c2} *)
-  | EAsk of (expr)               (* ask(e) *)
+  | ERule of (expr * expr)                      (* if e1 then e2*)
+  | EList of (expr * expr)                      (* {c1, c2} *)
+  | EAsk of (expr)                              (* ask(e) *)
 ;;
 
 
-(* Note : dans le printf d'OCaml, le format %a
-   correspond a 2 arguments consecutifs :
-        - une fonction d'impression de type (out_channel -> 'a -> unit)
-        - un argument a imprimer, de type 'a
-   Voir le cas EApp ci-dessous.
- *)
 let rec print oc = function
   | EInt n -> Printf.fprintf oc "%d" n
   | EBool b -> Printf.fprintf oc "%s" (if b then "true" else "false")

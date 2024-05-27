@@ -30,7 +30,8 @@ let main() =
   let _ = Printf.printf "See the current state of the system with \"memory\"\n" in
   let _ = Printf.printf "End the session with \"exit\"\n\n" in
   let lexbuf = ref (Lexing.from_channel input_channel) in
-
+  
+  (* Première initialisation de la mémoire *)
   let attributes : Memory.attributes_table = ref [] in
   let rules : Memory.rules_table = ref [] in
   let set = ref true in
@@ -45,7 +46,7 @@ let main() =
       let rules_copy = !rules in
       begin
       try
-        Sem.compile_rule e attributes rules;
+        Sem.interprete_rule e attributes rules;
         Printf.printf "Rule accepted.\n"
       with
       | Failure msg ->
@@ -57,7 +58,7 @@ let main() =
     with
     | Lexeur.Eoi -> lexbuf := Lexing.from_channel stdin
     | Failure msg -> Printf.printf "Error: %s\n\n" msg
-    (*if the parser raised the error End_of_set, then move on to the next loop*)
+    (* si on a fini de définir les règles, on peut passer à la phase use *)
     | Ast.Move_on ->
       Printf.printf "\nRules are set.\n\n";
       Printf.printf "State a fact with \"<fact1>, <fact2>, ... !\"\n";
@@ -86,7 +87,7 @@ let main() =
           (ep.Lexing.pos_cnum - sp.Lexing.pos_bol)
   done
 ;
-
+  (* Deuxième initialisation de la mémoire *)
   let facts : Memory.facts_table = ref [] in
   let associations : Memory.associations_table = ref [] in
   while true do
@@ -102,7 +103,7 @@ let main() =
       let associations_copy = !associations in
       begin
       try
-        Sem.compile_use e attributes rules facts associations;
+        Sem.interprete_use e attributes rules facts associations;
         Printf.printf "Use validated.\n"
       with
       | Failure msg ->

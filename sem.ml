@@ -1,8 +1,23 @@
 open Ast;;
 
+(******************************************************************************)
+(* Le code suivant contient le coeur de l'interpreteur de règles. Il est      *)
+(* composé de trois parties :                                                *)
+(* - La partie set, qui contient les fonctions permettant de manipuler les    *)
+(*   attributs et les règles.                                                 *)
+(* - La partie use, qui contient les fonctions permettant de manipuler les    *)
+(*   faits.                                                                  *)
+(* - La partie ask, qui contient les fonctions permettant de poser des        *)
+(*   questions sur les attributs.                                            *)
+(******************************************************************************)
+
+(******************************************************************************)
+
+
 (* Partie set *)
 
 
+(* La fonction printmem permet d'afficher les attributs et les règles. *)
 let printmem oc attributes rules =
   let rec print_index_list l = match l with
     | [] -> ()
@@ -59,6 +74,7 @@ let printmem oc attributes rules =
 ;;
 
 
+(* La fonction deduce_type permet de déduire le type d'une expression. *)
 let rec deduce_type e attributes = match e with
   | EBool _ -> Memory.Bool
   | EInt _ -> Memory.Int
@@ -78,6 +94,8 @@ let rec deduce_type e attributes = match e with
   | _ -> raise (Failure "Could not deduce type")
 ;;
 
+
+(* La fonction handle_attribute permet de gérer les attributs d'une règle. *)
 let handle_attribute s mem_type values attributes id_rule =
   let att = Memory.get_attribute attributes s in
   match att with
@@ -100,16 +118,18 @@ let handle_attribute s mem_type values attributes id_rule =
         Memory.change_attribute attributes (id, name, cond, new_conc, mem_type, new_values, false))
   ;;
 
+
+(* La fonction rerun_rules permet de relancer la compilation des règles. *)
 let rec rerun_rules attributes rules =
   let rec run_cond_list cond_list =
     match cond_list with
     | [] -> ()
-    | e::q -> ignore (compile_atomic_cond e attributes rules []); run_cond_list q
+    | e::q -> ignore (interprete_atomic_cond e attributes rules []); run_cond_list q
   in
   let rec run_conc_list conc_list =
     match conc_list with
     | [] -> ()
-    | e::q -> ignore (compile_atomic_conc e attributes rules []); run_conc_list q
+    | e::q -> ignore (interprete_atomic_conc e attributes rules []); run_conc_list q
   in
   match rules with
   | [] -> ()
@@ -118,7 +138,9 @@ let rec rerun_rules attributes rules =
     ignore (run_conc_list conc);
     rerun_rules attributes q
 
-and compile_atomic_cond e attributes rules_value rule_id =
+
+(* La fonction interprete_atomic_cond permet de interpreter une condition atomique. *)
+and interprete_atomic_cond e attributes rules_value rule_id =
   let local_handle_attribute s mem_type =
     let changed_type = handle_attribute s mem_type [] attributes rule_id in
     if changed_type then
@@ -165,7 +187,8 @@ and compile_atomic_cond e attributes rules_value rule_id =
   in handle_expr e Memory.Bool;
   e
 
-and compile_atomic_conc e attributes rules_value rule_id =
+(* La fonction interprete_atomic_conc permet de interpreter une conclusion atomique. *)
+and interprete_atomic_conc e attributes rules_value rule_id =
   let local_handle_attribute s mem_type value =
     let changed_type = handle_attribute s mem_type [value] attributes rule_id in
     if changed_type then
@@ -199,34 +222,39 @@ and compile_atomic_conc e attributes rules_value rule_id =
 ;;
 
 
-let rec compile_cond e attributes rules rule_id =
+(* La fonction interprete_cond permet de interpreter une liste de conditions atomiques. *)
+let rec interprete_cond e attributes rules rule_id =
   match e with
-  | EList (c, EBool (true)) -> [compile_atomic_cond c attributes rules [rule_id]]
-  | EList (c1, c2) -> compile_atomic_cond c1 attributes rules [rule_id] :: compile_cond c2 attributes rules rule_id
-  | _ -> raise (Failure "Condition compiler expected a condition list")
+  | EList (c, EBool (true)) -> [interprete_atomic_cond c attributes rules [rule_id]]
+  | EList (c1, c2) -> interprete_atomic_cond c1 attributes rules [rule_id] :: interprete_cond c2 attributes rules rule_id
+  | _ -> raise (Failure "Condition interpreter expected a condition list")
 
 
-let rec compile_conc e attributes rules rule_id =
+(* La fonction interprete_conc permet de interpreter une liste de conclusions atomiques. *)
+let rec interprete_conc e attributes rules rule_id =
   match e with
-  | EList (c, EInt (1)) -> [compile_atomic_conc c attributes rules [rule_id]]
-  | EList (c1, c2) -> compile_atomic_conc c1 attributes rules [rule_id] :: compile_conc c2 attributes rules rule_id
-  | _ -> raise (Failure "Conclusion compiler expected a conclusion list")
+  | EList (c, EInt (1)) -> [interprete_atomic_conc c attributes rules [rule_id]]
+  | EList (c1, c2) -> interprete_atomic_conc c1 attributes rules [rule_id] :: interprete_conc c2 attributes rules rule_id
+  | _ -> raise (Failure "Conclusion interpreter expected a conclusion list")
 ;;
 
-let compile_rule e attributes rules = match e with
+
+(* La fonction interprete_rule permet de interpreter une règle. *)
+let interprete_rule e attributes rules = match e with
   | ERule (condition, conclusion) ->
     let rule_id = List.length !rules in
-    let cond_list = compile_cond condition attributes !rules rule_id in
-    let conc_list = compile_conc conclusion attributes !rules rule_id in
+    let cond_list = interprete_cond condition attributes !rules rule_id in
+    let conc_list = interprete_conc conclusion attributes !rules rule_id in
     rules := !rules @ [(rule_id, cond_list, conc_list, false)]
   | _ -> raise (Failure "Expected a rule")
 ;;
 
 
 (******************************************************************************)
-(* Partie ask *)
+(* Partie use *)
 
 
+(* Permet d'afficher les faits. *)
 let printfacts oc facts =
   let rec printfacts_aux facts = match facts with
     | [] -> ()
@@ -238,6 +266,8 @@ let printfacts oc facts =
   Printf.fprintf oc "\n"
 ;;
 
+
+(* Permet d'afficher les associations. *)
 let printassociations oc associations =
   let rec printassoc_aux assoc = match assoc with
     | [] -> ()
@@ -249,6 +279,8 @@ let printassociations oc associations =
   Printf.fprintf oc "\n"
 ;;
 
+
+(* Pemet d'évaluer une expression, et de retourner sa valeur et son type. *)
 let rec evaluate e attributes rules_value facts_value current_type =
   match e with
   | EBool b -> Some (EBool b), Memory.Bool
@@ -327,6 +359,8 @@ let rec evaluate e attributes rules_value facts_value current_type =
   | _ -> raise (Failure "Could not evaluate expression")
 ;;
 
+
+(* Propage les faits. *)
 let rec propagate name value mem_type attributes rules facts associations no_msg =
   let delta_facts = ref [] in
   let rec explore_rules rules_list facts_list =
@@ -369,11 +403,13 @@ let rec propagate name value mem_type attributes rules facts associations no_msg
   let rec propagate_aux delta =
     match delta with
     | [] -> ()
-    | f::q -> (compile_fact f attributes rules facts associations no_msg; propagate_aux q)
+    | f::q -> (interprete_fact f attributes rules facts associations no_msg; propagate_aux q)
   in
   propagate_aux !delta_facts
 
-and compile_fact fact attributes rules facts associations no_msg =
+
+(* Regarde en détail le contenu d'un fait. *)
+and interprete_fact fact attributes rules facts associations no_msg =
   match fact with
   | EAffect (name, EIdent n) ->
     let value, mem_type = evaluate (EIdent n) attributes !rules !facts Memory.Unknown in
@@ -387,6 +423,8 @@ and compile_fact fact attributes rules facts associations no_msg =
     | Some v -> propagate name v mem_type attributes rules facts associations no_msg)
   | _ -> raise (Failure "Expected a fact")
 
+
+(* lance les associations *)
 and run_associations name value mem_type attributes rules facts associations no_msg =
   let rec run_associations_aux associations_list assoc_begin =
     match associations_list with
@@ -400,6 +438,11 @@ and run_associations name value mem_type attributes rules facts associations no_
   in run_associations_aux !associations []
 ;;
 
+
+(******************************************************************************)
+(* Partie ask *)
+
+(* demande à l'utilisateur si une condition est vraie *)
 let ask_for name op e attributes rules facts associations =
   match (Memory.get_attribute attributes name) with
   | None -> raise (Failure "Unknown identifier")
@@ -416,7 +459,9 @@ let ask_for name op e attributes rules facts associations =
     ask_loop ())
 ;;
 
-let rec compile_binop_ask a attributes rules facts associations tried =
+
+(* interprete une question de type binop *)
+let rec interprete_binop_ask a attributes rules facts associations tried =
   match a with
   | EBinop (op, EIdent(name), e) ->
     (let attribute = Memory.get_attribute attributes name in
@@ -446,12 +491,12 @@ let rec compile_binop_ask a attributes rules facts associations tried =
            let temp_rules = ref !rules in
            let temp_facts = ref !facts in
            let temp_associations = ref !associations in
-           (* Compile all facts in conc *)
-           let rec compile_conc_list conc_list =
+           (* interprete all facts in conc *)
+           let rec interprete_conc_list conc_list =
              match conc_list with
              | [] -> ()
-             | c::qc -> (compile_fact c temp_attributes temp_rules temp_facts temp_associations true; compile_conc_list qc)
-           in compile_conc_list conc;
+             | c::qc -> (interprete_fact c temp_attributes temp_rules temp_facts temp_associations true; interprete_conc_list qc)
+           in interprete_conc_list conc;
            let temp_value, temp_mem_type = evaluate a temp_attributes !temp_rules !temp_facts Memory.Bool in
            let try_cond c =
               let rec try_all cd =
@@ -461,7 +506,7 @@ let rec compile_binop_ask a attributes rules facts associations tried =
                   (if List.mem c !tried then try_all qc
                   else (
                     tried := c :: !tried;
-                    match compile_binop_ask c attributes rules facts associations tried with
+                    match interprete_binop_ask c attributes rules facts associations tried with
                     | true -> try_all qc
                     | false -> false
                   ))
@@ -484,7 +529,7 @@ let rec compile_binop_ask a attributes rules facts associations tried =
                       let temp_temp_attributes = ref !temp_attributes in
                       let temp_temp_facts = ref !temp_facts in
                       let temp_temp_associations = ref !temp_associations in
-                      if compile_binop_ask (EBinop (op, EIdent n2, e)) temp_temp_attributes new_rules temp_temp_facts temp_temp_associations tried
+                      if interprete_binop_ask (EBinop (op, EIdent n2, e)) temp_temp_attributes new_rules temp_temp_facts temp_temp_associations tried
                       then
                         (temp_attributes := !temp_temp_attributes;
                         temp_rules := !new_rules;
@@ -525,7 +570,9 @@ let rec compile_binop_ask a attributes rules facts associations tried =
   | _ -> raise (Failure "Unexpected expression type in binom question")
 ;;
 
-let rec compile_ask a attributes rules facts associations =
+
+(* interprete une question *)
+let rec interprete_ask a attributes rules facts associations =
   match a with
   | EIdent name ->
     let attribute = Memory.get_attribute attributes name in
@@ -542,7 +589,7 @@ let rec compile_ask a attributes rules facts associations =
             let temp_rules = ref !rules in
             let temp_facts = ref !facts in
             let temp_associations = ref !associations in
-            let b = compile_binop_ask (EBinop ("=", a, e)) temp_attributes temp_rules temp_facts temp_associations tried in
+            let b = interprete_binop_ask (EBinop ("=", a, e)) temp_attributes temp_rules temp_facts temp_associations tried in
             if b then Some e
             else explore_values q
         in explore_values values
@@ -551,21 +598,23 @@ let rec compile_ask a attributes rules facts associations =
   | _ -> raise (Failure "Unexpected question type")
 ;;
 
-let rec compile_use e attributes rules facts associations =
+
+(* interprete une question ou une affirmation *)
+let rec interprete_use e attributes rules facts associations =
   match e with
-  | EList(fact, EInt (1)) -> compile_fact fact attributes rules facts associations false
-  | EList(fact, fact_q) -> (compile_fact fact attributes rules facts associations false; compile_use fact_q attributes rules facts associations)
+  | EList(fact, EInt (1)) -> interprete_fact fact attributes rules facts associations false
+  | EList(fact, fact_q) -> (interprete_fact fact attributes rules facts associations false; interprete_use fact_q attributes rules facts associations)
   | EAsk(EBinop (op, EIdent(name), e)) ->
     let tried = ref [] in
     let temp_attributes = ref !attributes in
     let temp_rules = ref !rules in
     let temp_facts = ref !facts in
     let temp_associations = ref !associations in
-    let b = compile_binop_ask (EBinop (op, EIdent(name), e)) temp_attributes temp_rules temp_facts temp_associations tried in
+    let b = interprete_binop_ask (EBinop (op, EIdent(name), e)) temp_attributes temp_rules temp_facts temp_associations tried in
     if b then Printf.printf "\nThis affirmation is true\n"
     else Printf.printf "\nThis affirmation could not be deduced\n"
   | EAsk(e) ->
-    let value = compile_ask e attributes rules facts associations
+    let value = interprete_ask e attributes rules facts associations
     in
     (match value with
     | None -> Printf.printf "\n"; Ast.print stdout e; Printf.printf " value could not be deduced\n"

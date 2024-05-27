@@ -28,6 +28,7 @@ open Ast ;;
 
 %%
 
+(* Point d'entree de set *)
 set: rule_expr DOT { $1 }
     | DOT { raise (Invalid_argument "") }
     | DOUBLEDOT { raise (Move_on) }
@@ -35,6 +36,7 @@ set: rule_expr DOT { $1 }
     | EXIT { raise (Exit)}
 ;
 
+(* Point d'entree de use *)
 use: fact_expr IMPERATIVE { $1 }
     | IMPERATIVE { raise (Invalid_argument "") }
     | ask_expr INTEROGATIVE { $1 }
