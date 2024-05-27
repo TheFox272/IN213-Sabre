@@ -1,0 +1,36 @@
+ast.cmo :
+ast.cmx :
+lexeur.cmo : \
+    parseur.cmi
+lexeur.cmx : \
+    parseur.cmx
+loop.cmo : \
+    sem.cmo \
+    parseur.cmi \
+    memory.cmo \
+    lexeur.cmo \
+    ast.cmo
+loop.cmx : \
+    sem.cmx \
+    parseur.cmx \
+    memory.cmx \
+    lexeur.cmx \
+    ast.cmx
+memory.cmo : \
+    ast.cmo
+memory.cmx : \
+    ast.cmx
+parseur.cmo : \
+    ast.cmo \
+    parseur.cmi
+parseur.cmx : \
+    ast.cmx \
+    parseur.cmi
+parseur.cmi : \
+    ast.cmo
+sem.cmo : \
+    memory.cmo \
+    ast.cmo
+sem.cmx : \
+    memory.cmx \
+    ast.cmx

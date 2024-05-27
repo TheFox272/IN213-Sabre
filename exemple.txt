@@ -1,0 +1,8 @@
+if temperature >= 25 then habits = "tshirt".
+if temperature >= 15, temperature < 25 then habits = "veste_legere".
+if temperature < 15 then habits = "manteau_chaud".
+if meteo = "pluvieux" then accessoire = "parapluie".
+if meteo = "neigeux" then accessoire = adapte.
+if saison="ete" then adapte = "bonnet".
+if saison="hiver" then adapte = "echarpe".
+..
